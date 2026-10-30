@@ -8,16 +8,35 @@ use Illuminate\Validation\Rule;
 
 class PenjualanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $penjualan = Penjualan::query()
+        $query = Penjualan::query();
+
+        // Fitur pencarian transaksi
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('kode_transaksi', 'like', "%{$search}%")
+                    ->orWhere('nama_pelanggan', 'like', "%{$search}%")
+                    ->orWhere('nama_produk', 'like', "%{$search}%");
+            });
+        }
+
+        // Fitur filter status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $penjualan = $query
             ->orderByDesc('tanggal')
             ->orderByDesc('id')
             ->get();
 
-        $totalomzet = Penjualan::where('status', 'Selesai')->sum('total');
+        $totalOmzet = Penjualan::where('status', 'Selesai')
+            ->sum('total');
 
-        return view('penjualan.index', compact('penjualan', 'totalomzet'));
+        return view('penjualan.index', compact('penjualan', 'totalOmzet'));
     }
 
     public function create()
@@ -28,7 +47,12 @@ class PenjualanController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'kode_transaksi' => ['required', 'string', 'max:30', 'unique:penjualan,kode_transaksi'],
+            'kode_transaksi' => [
+                'required',
+                'string',
+                'max:30',
+                'unique:penjualan,kode_transaksi'
+            ],
             'tanggal' => ['required', 'date'],
             'nama_pelanggan' => ['required', 'string', 'max:100'],
             'nama_produk' => ['required', 'string', 'max:120'],
@@ -38,7 +62,8 @@ class PenjualanController extends Controller
             'catatan' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $validated['total'] = $validated['jumlah'] * $validated['harga_satuan'];
+        $validated['total'] =
+            $validated['jumlah'] * $validated['harga_satuan'];
 
         Penjualan::create($validated);
 
@@ -61,8 +86,11 @@ class PenjualanController extends Controller
     {
         $validated = $request->validate([
             'kode_transaksi' => [
-                'required', 'string', 'max:30',
-                Rule::unique('penjualan', 'kode_transaksi')->ignore($penjualan->id),
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('penjualan', 'kode_transaksi')
+                    ->ignore($penjualan->id),
             ],
             'tanggal' => ['required', 'date'],
             'nama_pelanggan' => ['required', 'string', 'max:100'],
@@ -73,7 +101,8 @@ class PenjualanController extends Controller
             'catatan' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $validated['total'] = $validated['jumlah'] * $validated['harga_satuan'];
+        $validated['total'] =
+            $validated['jumlah'] * $validated['harga_satuan'];
 
         $penjualan->update($validated);
 
